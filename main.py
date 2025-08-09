@@ -16,13 +16,17 @@ from message_processing.message_processor import DefaultMessageProcessor
 from message_processing.message_producer import DefaultMessageProducer
 from service.field_extractor_service import DefaultFieldsExtractionService
 
-if __name__ == "__main__":
+def main():
+    print("Starting UOPP Data Processor...")
+    
     # Load necessary dependencies
+    print("Loading NLP models...")
     nlp = spacy.load(SPACY_MODEL)
     translator = Translator()
     pipeline_bart = pipeline(HUGGING_FACE_MODEL_TASK,
                              model=HUGGING_FACE_MODEL,
                              max_length=HUGGING_FACE_MODEL_MAX_TOKEN_LENGTH)
+    print("NLP models loaded successfully.")
 
     # Create instances of field extractors
     extractors = [
@@ -36,16 +40,40 @@ if __name__ == "__main__":
     extraction_service = DefaultFieldsExtractionService(extractors)
 
     # Configure and start the RabbitMQ client
+    print("Initializing RabbitMQ client...")
     rabbit_client = DefaultRabbitMQClient(RABBIT_RAW_QUEUE_NAME, RABBIT_DELIVERY_MODE, RABBIT_HOST, RABBIT_PORT,
                                           RABBIT_USERNAME, RABBIT_PASSWORD, RABBIT_MAX_RETRIES, RABBIT_RETRY_DELAY)
-    rabbit_client.setup_connection()
+    
+    # Setup connection with retry logic
+    if not rabbit_client.setup_connection():
+        print("Failed to establish initial connection to RabbitMQ. Exiting...")
+        return
 
     # Setup message processing instances
-    # TODO: consider event-driven approach (for sure will increase complexity, but reduce tight coupling)
     message_producer = DefaultMessageProducer(rabbit_client, RABBIT_PROCESSED_QUEUE_NAME)
     message_processor = DefaultMessageProcessor(extraction_service, message_producer)
     message_consumer = DefaultMessageConsumer(message_processor)
 
-    # Register the message consumer and start consuming
-    rabbit_client.register_message_consumer(message_consumer.consume_message, RABBIT_RAW_QUEUE_NAME)
-    rabbit_client.start_consuming()
+    print("Starting continuous message consumption...")
+    print("Press Ctrl+C to stop the application.")
+    
+    try:
+        # Register the message consumer and start consuming
+        rabbit_client.register_message_consumer(message_consumer.consume_message, RABBIT_RAW_QUEUE_NAME)
+        
+        # This will run continuously until explicitly stopped
+        rabbit_client.start_consuming()
+        
+    except KeyboardInterrupt:
+        print("\nReceived keyboard interrupt. Shutting down gracefully...")
+    except Exception as e:
+        print(f"Unexpected error: {e}")
+        # Don't exit on unexpected errors - let the client handle reconnection
+    finally:
+        # Only cleanup when explicitly stopping
+        rabbit_client.stop_consuming()
+        rabbit_client.close_connection()
+        print("Application stopped.")
+
+if __name__ == "__main__":
+    main()

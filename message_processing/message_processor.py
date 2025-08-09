@@ -19,13 +19,24 @@ class DefaultMessageProcessor:
                 logger.error("Field 'message_text' is empty or missing in the raw data.")
                 return
 
-            extraction_results = self.extraction_service.extract_fields(message_text)
+            # Extract fields with error handling
+            try:
+                extraction_results = self.extraction_service.extract_fields(message_text)
+            except Exception as e:
+                logger.error(f"Error during field extraction: {str(e)}")
+                # Provide default extraction results
+                extraction_results = {
+                    'title': 'Не вдалося витягнути заголовок',
+                    'categories': [],
+                    'format': 'офлайн',
+                    'asap': False
+                }
 
             processed_data = ProcessedMessageData(
-                title=extraction_results['title'],
-                categories=extraction_results['categories'],
-                format=extraction_results['format'],
-                asap=extraction_results['asap']
+                title=extraction_results.get('title', 'Не вдалося витягнути заголовок'),
+                categories=extraction_results.get('categories', []),
+                format=extraction_results.get('format', 'офлайн'),
+                asap=extraction_results.get('asap', False)
             )
 
             full_message_data = FullMessageData(
@@ -35,9 +46,14 @@ class DefaultMessageProcessor:
 
             logger.info(f"Extracted from RawMessageData following fields: {extraction_results}")
 
-            self.message_producer.produce_message(full_message_data)
+            # Produce message with error handling
+            try:
+                self.message_producer.produce_message(full_message_data)
+            except Exception as e:
+                logger.error(f"Error producing message: {str(e)}")
 
         except json.JSONDecodeError:
             logger.error("Failed to decode JSON from message content.")
         except Exception as e:
             logger.error(f"Error during message processing: {str(e)}")
+            # Don't re-raise the exception to prevent application crash
