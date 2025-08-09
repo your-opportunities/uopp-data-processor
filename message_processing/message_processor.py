@@ -3,7 +3,6 @@ import logging
 
 from data.message_data import FullMessageData, ProcessedMessageData
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 

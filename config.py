@@ -1,4 +1,5 @@
 import os
+import logging
 
 from dotenv import load_dotenv
 
@@ -14,6 +15,9 @@ RABBIT_USERNAME = os.environ.get("RABBIT_USERNAME")
 RABBIT_PASSWORD = os.environ.get("RABBIT_PASSWORD")
 RABBIT_MAX_RETRIES = int(os.environ.get("RABBIT_MAX_RETRIES"))
 RABBIT_RETRY_DELAY = int(os.environ.get("RABBIT_RETRY_DELAY"))
+
+# Logging configs
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 
 # TODO: consider moving strs to some project properties file (but not to .env)
 # Models

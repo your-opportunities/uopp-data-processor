@@ -4,7 +4,6 @@ from datetime import datetime
 
 from data.message_data import RawMessageData
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 

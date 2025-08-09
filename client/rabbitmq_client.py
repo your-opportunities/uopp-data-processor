@@ -4,7 +4,6 @@ import time
 import pika
 from pika.exceptions import AMQPConnectionError, AMQPChannelError, ConnectionClosedByBroker
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
