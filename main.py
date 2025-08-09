@@ -4,10 +4,7 @@ from googletrans import Translator
 from transformers import pipeline
 
 from client.rabbitmq_client import DefaultRabbitMQClient
-from config import RABBIT_RAW_QUEUE_NAME, RABBIT_DELIVERY_MODE, RABBIT_HOST, RABBIT_USERNAME, RABBIT_RETRY_DELAY, \
-    RABBIT_MAX_RETRIES, RABBIT_PASSWORD, RABBIT_PORT, RABBIT_PROCESSED_QUEUE_NAME, HUGGING_FACE_MODEL_TASK, \
-    HUGGING_FACE_MODEL, HUGGING_FACE_MODEL_MAX_TOKEN_LENGTH, SPACY_MODEL, CATEGORIES_CANDIDATES, ASAP_CANDIDATES, \
-    TITLE_LABEL, CATEGORIES_LABEL, FORMAT_LABEL, ASAP_LABEL, LOG_LEVEL
+from config import load_config
 from field_extractor.asap_field_extractor import AsapFieldExtractor
 from field_extractor.category_field_extractor import CategoryFieldExtractor
 from field_extractor.format_field_extractor import FormatFieldExtractor
@@ -18,27 +15,44 @@ from message_processing.message_producer import DefaultMessageProducer
 from service.field_extractor_service import DefaultFieldsExtractionService
 
 # Configure logging
-def setup_logging():
+def setup_logging(log_level="INFO"):
     """Setup centralized logging configuration"""
     # Convert string log level to logging constant
-    log_level = getattr(logging, LOG_LEVEL, logging.INFO)
+    log_level_constant = getattr(logging, log_level.upper(), logging.INFO)
     
     logging.basicConfig(
-        level=log_level,
+        level=log_level_constant,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
     
     # Create logger for the main application
     logger = logging.getLogger(__name__)
-    logger.info(f"Logging level set to: {LOG_LEVEL}")
+    logger.info(f"Logging level set to: {log_level}")
     return logger
 
 def main():
-    # Setup logging
-    logger = setup_logging()
+    # Setup logging initially
+    logger = setup_logging("INFO")
     
     logger.info("Starting UOPP Data Processor...")
+    
+    # Load configuration
+    logger.info("Loading configuration...")
+    load_config()
+    
+    # Import config variables after loading
+    from config import (
+        RABBIT_RAW_QUEUE_NAME, RABBIT_DELIVERY_MODE, RABBIT_HOST,
+        RABBIT_USERNAME, RABBIT_RETRY_DELAY, RABBIT_MAX_RETRIES,
+        RABBIT_PASSWORD, RABBIT_PORT, RABBIT_PROCESSED_QUEUE_NAME,
+        HUGGING_FACE_MODEL_TASK, HUGGING_FACE_MODEL, HUGGING_FACE_MODEL_MAX_TOKEN_LENGTH,
+        SPACY_MODEL, CATEGORIES_CANDIDATES, ASAP_CANDIDATES,
+        TITLE_LABEL, CATEGORIES_LABEL, FORMAT_LABEL, ASAP_LABEL, LOG_LEVEL
+    )
+    
+    # Reconfigure logging with the actual log level from config
+    logger = setup_logging(LOG_LEVEL)
     
     # Load necessary dependencies
     logger.info("Loading NLP models...")
