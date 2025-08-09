@@ -2,6 +2,8 @@ import logging
 import spacy
 from googletrans import Translator
 from transformers import pipeline
+import subprocess
+import sys
 
 from client.rabbitmq_client import DefaultRabbitMQClient
 from config import load_config
@@ -31,6 +33,40 @@ def setup_logging(log_level="INFO"):
     logger.info(f"Logging level set to: {log_level}")
     return logger
 
+def download_models_if_needed():
+    """Download NLP models if they don't exist."""
+    logger = logging.getLogger(__name__)
+    
+    # Check if spaCy model exists
+    try:
+        nlp = spacy.load("uk_core_news_sm")
+        logger.info("spaCy Ukrainian model already exists")
+    except OSError:
+        logger.info("Downloading spaCy Ukrainian model...")
+        try:
+            result = subprocess.run([
+                sys.executable, "-m", "spacy", "download", "uk_core_news_sm"
+            ], check=True, capture_output=True, text=True, timeout=300)
+            logger.info("spaCy Ukrainian model downloaded successfully")
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            logger.error(f"Failed to download spaCy model: {e}")
+            return False
+    
+    # Check if transformers model exists (will download automatically if not)
+    try:
+        logger.info("Checking transformers model...")
+        from transformers import pipeline
+        # This will download the model if it doesn't exist
+        test_pipeline = pipeline("text2text-generation", 
+                               model="beogradjanka/bart_multitask_finetuned_for_title_and_keyphrase_generation", 
+                               max_length=20)
+        logger.info("Transformers model ready")
+    except Exception as e:
+        logger.error(f"Failed to load/download transformers model: {e}")
+        return False
+    
+    return True
+
 def main():
     # Setup logging initially
     logger = setup_logging("INFO")
@@ -46,6 +82,7 @@ def main():
         RABBIT_RAW_QUEUE_NAME, RABBIT_DELIVERY_MODE, RABBIT_HOST,
         RABBIT_USERNAME, RABBIT_RETRY_DELAY, RABBIT_MAX_RETRIES,
         RABBIT_PASSWORD, RABBIT_PORT, RABBIT_PROCESSED_QUEUE_NAME,
+        RABBIT_USE_SSL, RABBIT_VIRTUAL_HOST,
         HUGGING_FACE_MODEL_TASK, HUGGING_FACE_MODEL, HUGGING_FACE_MODEL_MAX_TOKEN_LENGTH,
         SPACY_MODEL, CATEGORIES_CANDIDATES, ASAP_CANDIDATES,
         TITLE_LABEL, CATEGORIES_LABEL, FORMAT_LABEL, ASAP_LABEL, LOG_LEVEL
@@ -53,6 +90,12 @@ def main():
     
     # Reconfigure logging with the actual log level from config
     logger = setup_logging(LOG_LEVEL)
+    
+    # Download models if needed
+    logger.info("Checking for required NLP models...")
+    if not download_models_if_needed():
+        logger.error("Failed to download required models. Exiting...")
+        return
     
     # Load necessary dependencies
     logger.info("Loading NLP models...")
@@ -81,7 +124,8 @@ def main():
     # Configure and start the RabbitMQ client
     logger.info("Initializing RabbitMQ client...")
     rabbit_client = DefaultRabbitMQClient(RABBIT_RAW_QUEUE_NAME, RABBIT_DELIVERY_MODE, RABBIT_HOST, RABBIT_PORT,
-                                          RABBIT_USERNAME, RABBIT_PASSWORD, RABBIT_MAX_RETRIES, RABBIT_RETRY_DELAY)
+                                          RABBIT_USERNAME, RABBIT_PASSWORD, RABBIT_MAX_RETRIES, RABBIT_RETRY_DELAY,
+                                          RABBIT_USE_SSL, RABBIT_VIRTUAL_HOST)
     
     # Setup connection with retry logic
     if not rabbit_client.setup_connection():

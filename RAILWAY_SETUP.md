@@ -116,6 +116,7 @@ Key things to watch for in logs:
 **Free Tier Limits:**
 - **Railway**: 500 hours/month
 - **RabbitMQ**: Depends on your provider (CloudAMQP free tier available)
+- **Image Size**: 4GB limit (optimized to fit within this limit)
 
 **Upgrading:**
 - If you hit limits, consider paid plans
@@ -161,6 +162,24 @@ Key things to watch for in logs:
 3. Check that values are correct (no extra spaces, quotes, etc.)
 4. Redeploy the application
 5. Check logs for "Found custom variables" message
+
+### SSL Connection Issues
+
+**If you get "IncompatibleProtocolError" or "StreamLostError":**
+
+1. **Check URL Scheme**: Ensure you're using `amqps://` for SSL connections
+2. **Verify Port**: SSL connections typically use port 5671, plain connections use 5672
+3. **Check CloudAMQP Settings**: Ensure SSL is enabled in your CloudAMQP dashboard
+
+**Common SSL Issues:**
+- Using `amqp://` with port 5671 (should be `amqps://`)
+- Using `amqps://` with port 5672 (should be 5671)
+- Missing SSL configuration in the client
+
+**Debug Steps:**
+1. Check Railway logs for SSL configuration details
+2. Verify your RabbitMQ provider supports SSL
+3. Ensure the URL format is correct: `amqps://username:password@host:5671/vhost`
 
 ### Model Loading Issues
 

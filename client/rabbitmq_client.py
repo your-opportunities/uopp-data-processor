@@ -1,5 +1,6 @@
 import logging
 import time
+import ssl
 
 import pika
 from pika.exceptions import AMQPConnectionError, AMQPChannelError, ConnectionClosedByBroker
@@ -8,22 +9,41 @@ logger = logging.getLogger(__name__)
 
 
 class DefaultRabbitMQClient:
-    def __init__(self, queue_name, delivery_mode, host, port, username, password, max_retries, retry_delay):
+    def __init__(self, queue_name, delivery_mode, host, port, username, password, max_retries, retry_delay, use_ssl=False, virtual_host='/'):
         self.queue_name = queue_name
         self.delivery_mode = delivery_mode
         self.credentials = pika.PlainCredentials(username, password)
         
-        # Enhanced connection parameters with heartbeat and timeout settings
-        self.parameters = pika.ConnectionParameters(
-            host=host, 
-            port=port, 
-            credentials=self.credentials,
-            heartbeat=30,  # 30 second heartbeat
-            connection_attempts=3,
-            retry_delay=1,
-            socket_timeout=5,
-            blocked_connection_timeout=300
-        )
+        # Configure connection parameters based on SSL requirement
+        if use_ssl:
+            context = ssl.create_default_context()
+            context.check_hostname = False
+            context.verify_mode = ssl.CERT_NONE
+            
+            self.parameters = pika.ConnectionParameters(
+                host=host,
+                port=port,
+                credentials=self.credentials,
+                virtual_host=virtual_host,
+                heartbeat=30,  # 30 second heartbeat
+                connection_attempts=3,
+                retry_delay=1,
+                socket_timeout=5,
+                blocked_connection_timeout=300,
+                ssl_options=pika.SSLOptions(context)
+            )
+        else:
+            self.parameters = pika.ConnectionParameters(
+                host=host,
+                port=port,
+                credentials=self.credentials,
+                virtual_host=virtual_host,
+                heartbeat=30,  # 30 second heartbeat
+                connection_attempts=3,
+                retry_delay=1,
+                socket_timeout=5,
+                blocked_connection_timeout=300
+            )
         
         self.max_retries = max_retries
         self.retry_delay = retry_delay
@@ -42,7 +62,7 @@ class DefaultRabbitMQClient:
                 if self.connection and not self.connection.is_closed:
                     self.close_connection()
                 
-                logger.info(f"Attempting to connect to RabbitMQ at {self.parameters.host}:{self.parameters.port}")
+                logger.info(f"Attempting to connect to RabbitMQ at {self.parameters.host}:{self.parameters.port} (SSL: {hasattr(self.parameters, 'ssl_options')})")
                 self.connection = pika.BlockingConnection(self.parameters)
                 self.channel = self.connection.channel()
                 

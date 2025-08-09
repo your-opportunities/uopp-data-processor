@@ -155,6 +155,15 @@ def load_config():
     RABBIT_PASSWORD = rabbit_config['password']
     RABBIT_VIRTUAL_HOST = rabbit_config.get('virtual_host', '/')
     RABBIT_USE_SSL = rabbit_config['use_ssl']
+    
+    # Debug: Show parsed RabbitMQ configuration
+    print(f"Parsed RabbitMQ configuration:")
+    print(f"  Host: {RABBIT_HOST}")
+    print(f"  Port: {RABBIT_PORT}")
+    print(f"  Username: {RABBIT_USERNAME}")
+    print(f"  Virtual Host: {RABBIT_VIRTUAL_HOST}")
+    print(f"  Use SSL: {RABBIT_USE_SSL}")
+    print(f"  Scheme: {'AMQPS' if RABBIT_USE_SSL else 'AMQP'}")
 
     # Logging configs
     LOG_LEVEL = get_optional_env_var("LOG_LEVEL", "INFO").upper()
